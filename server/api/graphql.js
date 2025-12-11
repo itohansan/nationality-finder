@@ -2,13 +2,19 @@ import { ApolloServer } from "@apollo/server";
 import { typeDefs } from "../src/schema.js";
 import resolvers from "../src/resolvers.js";
 
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-  introspection: true,
-});
+let serverInstance;
 
-await server.start();
+async function getServer() {
+  if (!serverInstance) {
+    serverInstance = new ApolloServer({
+      typeDefs,
+      resolvers,
+      introspection: true,
+    });
+    await serverInstance.start();
+  }
+  return serverInstance;
+}
 
 export default async function handler(req, res) {
   // CORS headers
@@ -17,18 +23,33 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
-    return res.status(200).end();
+    res.status(200).end();
+    return;
   }
 
-  // Parse body if it's a string
-  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+  try {
+    const server = await getServer();
 
-  // Handle GraphQL request
-  const result = await server.executeOperation({
-    query: body.query,
-    variables: body.variables,
-    operationName: body.operationName,
-  });
+    // Parse body
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
 
-  res.status(200).json(result.body);
+    // Execute GraphQL operation
+    const result = await server.executeOperation({
+      query: body.query,
+      variables: body.variables,
+      operationName: body.operationName,
+    });
+
+    // Send response
+    if (result.body.kind === "single") {
+      res.status(200).json(result.body.singleResult);
+    } else {
+      res.status(200).json(result.body);
+    }
+  } catch (error) {
+    console.error("GraphQL Error:", error);
+    res.status(500).json({
+      errors: [{ message: error.message }],
+    });
+  }
 }
