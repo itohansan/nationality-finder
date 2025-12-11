@@ -19,6 +19,11 @@ export default function SearchForm() {
   const [name, setName] = useState("");
   const [loadNationality, { data, loading, error }] =
     useLazyQuery(GET_NATIONALITY);
+
+  //
+  console.log("🔍 Query state:", { data, loading, error });
+  console.log("📦 Person data:", data?.getNationality);
+
   const [searchHistory, setSearchHistory] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
