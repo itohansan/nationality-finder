@@ -27,29 +27,56 @@ export default async function handler(req, res) {
     return;
   }
 
-  try {
-    const server = await getServer();
-
-    // Parse body
-    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-
-    // Execute GraphQL operation
-    const result = await server.executeOperation({
-      query: body.query,
-      variables: body.variables,
-      operationName: body.operationName,
+  // Handle GET requests (browser visits)
+  if (req.method === "GET") {
+    res.status(200).json({
+      message: "GraphQL Server is running",
+      endpoint: "/api/graphql",
+      method: "POST",
+      note: "Send POST requests with GraphQL queries to this endpoint",
     });
-
-    // Send response
-    if (result.body.kind === "single") {
-      res.status(200).json(result.body.singleResult);
-    } else {
-      res.status(200).json(result.body);
-    }
-  } catch (error) {
-    console.error("GraphQL Error:", error);
-    res.status(500).json({
-      errors: [{ message: error.message }],
-    });
+    return;
   }
+
+  // Handle POST requests (actual GraphQL queries)
+  if (req.method === "POST") {
+    try {
+      const server = await getServer();
+
+      // Parse body
+      const body =
+        typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+
+      // Check if body has query
+      if (!body || !body.query) {
+        res.status(400).json({
+          errors: [{ message: "GraphQL query is required" }],
+        });
+        return;
+      }
+
+      // Execute GraphQL operation
+      const result = await server.executeOperation({
+        query: body.query,
+        variables: body.variables,
+        operationName: body.operationName,
+      });
+
+      // Send response
+      if (result.body.kind === "single") {
+        res.status(200).json(result.body.singleResult);
+      } else {
+        res.status(200).json(result.body);
+      }
+    } catch (error) {
+      console.error("GraphQL Error:", error);
+      res.status(500).json({
+        errors: [{ message: error.message }],
+      });
+    }
+    return;
+  }
+
+  // Handle other methods
+  res.status(405).json({ error: "Method not allowed" });
 }
